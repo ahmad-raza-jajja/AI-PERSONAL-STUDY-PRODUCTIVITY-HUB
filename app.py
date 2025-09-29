@@ -10,7 +10,7 @@ HF_TOKEN = st.secrets["general"]["HF_TOKEN"]
 
 
 # Initialize Hugging Face client
-client = InferenceClient("facebook/bart-large-cnn", token=HF_TOKEN)
+client = InferenceClient("sshleifer/distilbart-cnn-12-6", token=HF_TOKEN)
 
 # --- Streamlit Page Config ---
 st.set_page_config(
@@ -67,4 +67,5 @@ st.markdown(
     "<p style='text-align:center; color:#00f5ff; margin-top:40px;'>Developed by Ahmad Raza Jajja</p>",
     unsafe_allow_html=True
 )
+
 
