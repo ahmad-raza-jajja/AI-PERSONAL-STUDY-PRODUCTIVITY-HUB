@@ -1,5 +1,6 @@
 import streamlit as st
 from huggingface_hub import InferenceClient
+import cohere
 from hashlib import sha256
 import os
 
@@ -55,9 +56,12 @@ if not st.session_state.logged_in:
 else:
     st.markdown(f"### Logged in as: {st.session_state.username}")
 
-    # --- Hugging Face Client ---
+    # --- API Clients ---
     HF_TOKEN = st.secrets["general"]["HF_TOKEN"]
-    client = InferenceClient("sshleifer/distilbart-cnn-12-6", token=HF_TOKEN)
+    COHERE_API_KEY = st.secrets["general"]["COHERE_API_KEY"]
+
+    hf_client = InferenceClient("sshleifer/distilbart-cnn-12-6", token=HF_TOKEN)
+    co = cohere.Client(COHERE_API_KEY)
 
     # --- Text Input ---
     text = st.text_area("Enter your text:", height=250)
@@ -70,35 +74,34 @@ else:
                 try:
                     output = ""
                     if tool=="Summarization":
-                        res = client.summarization(text)
-                        if isinstance(res,list) and len(res)>0:
-                            output=res[0].get("summary_text") or res[0].get("generated_text") or str(res[0])
-                        else: output=str(res)
+                        # Try HF first, then Cohere fallback
+                        try:
+                            res = hf_client.summarization(text)
+                            if isinstance(res,list) and len(res)>0:
+                                output=res[0].get("summary_text") or res[0].get("generated_text") or str(res[0])
+                            else: output=str(res)
+                        except:
+                            response = co.summarize(text)
+                            output = response.summary
 
                     elif tool=="Keyword Extraction":
                         prompt=f"Extract keywords from this text:\n{text}\nKeywords:"
-                        res=client.text_generation(prompt)
-                        if isinstance(res,list) and len(res)>0:
-                            output=res[0].get("generated_text") or str(res[0])
-                        else: output=str(res)
+                        response = co.generate(model='xlarge', prompt=prompt, max_tokens=60)
+                        output = response.generations[0].text.strip()
 
                     elif tool=="Paraphrasing":
                         prompt=f"Paraphrase this text:\n{text}\nParaphrased:"
-                        res=client.text_generation(prompt)
-                        if isinstance(res,list) and len(res)>0:
-                            output=res[0].get("generated_text") or str(res[0])
-                        else: output=str(res)
+                        response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
+                        output = response.generations[0].text.strip()
 
                     elif tool=="Translation":
-                        prompt=f"Translate to Spanish:\n{text}\nTranslation:"
-                        res=client.text_generation(prompt)
-                        if isinstance(res,list) and len(res)>0:
-                            output=res[0].get("generated_text") or str(res[0])
-                        else: output=str(res)
+                        prompt=f"Translate this text to Spanish:\n{text}\nTranslation:"
+                        response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
+                        output = response.generations[0].text.strip()
 
                     # --- Display & Copy ---
                     st.success(f"✅ {tool} Result:")
-                    st.markdown(f"<div class='summary-box' id='result-box'>{output}</div>",unsafe_allow_html=True)
+                    st.markdown(f"<div class='summary-box'>{output}</div>",unsafe_allow_html=True)
                     st.download_button("📋 Copy / Download Result", data=output, file_name=f"{tool}_output.txt")
 
                     # --- Save to session history ---
@@ -114,4 +117,4 @@ else:
             st.markdown(f"<div class='session-history'>{item}</div>", unsafe_allow_html=True)
 
 # --- Footer ---
-#st.markdown("<footer>Developed by Ahmad Raza Jajja</footer>", unsafe_allow_html=True)
+st.markdown("<footer>Developed by Ahmad Raza Jajja</footer>", unsafe_allow_html=True)
