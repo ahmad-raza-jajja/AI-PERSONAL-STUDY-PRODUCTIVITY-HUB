@@ -87,9 +87,19 @@ if st.button("Summarize"):
             try:
                 summary_result = client.summarization(text)
 
-                # Safe extraction
+                # --- Proper extraction of summary_text ---
+                summary_text = ""
                 if isinstance(summary_result, list) and len(summary_result) > 0:
-                    summary_text = summary_result[0].get("summary_text") or summary_result[0].get("generated_text") or str(summary_result[0])
+                    item = summary_result[0]
+                    # Hugging Face may return object or dict
+                    if hasattr(item, "summary_text"):
+                        summary_text = item.summary_text
+                    elif isinstance(item, dict) and "summary_text" in item:
+                        summary_text = item["summary_text"]
+                    elif isinstance(item, dict) and "generated_text" in item:
+                        summary_text = item["generated_text"]
+                    else:
+                        summary_text = str(item)
                 else:
                     summary_text = str(summary_result)
 
@@ -103,4 +113,4 @@ if st.button("Summarize"):
         st.warning("⚠ Please enter some text first!")
 
 # --- Footer ---
-st.markdown("<footer>Developed by Ahmad Raza Jajja</footer>", unsafe_allow_html=True)
+#st.markdown("<footer>Developed by Ahmad Raza Jajja</footer>", unsafe_allow_html=True)
