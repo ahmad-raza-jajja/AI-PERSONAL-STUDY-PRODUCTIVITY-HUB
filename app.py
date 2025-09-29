@@ -1,6 +1,5 @@
 import streamlit as st
 import cohere
-from transformers import pipeline
 
 # --- Page Config ---
 st.set_page_config(page_title="AI Study & Productivity Hub", page_icon="📚", layout="wide")
@@ -27,7 +26,7 @@ st.markdown("<h3>Boost your study with AI-powered tools!</h3>", unsafe_allow_htm
 # --- Session State ---
 if 'history' not in st.session_state: st.session_state.history = []
 
-# --- API Clients ---
+# --- Cohere Client ---
 COHERE_API_KEY = st.secrets["general"]["COHERE_API_KEY"]
 co = cohere.Client(COHERE_API_KEY)
 
@@ -41,11 +40,10 @@ if st.button("Run"):
         with st.spinner("Processing..."):
             try:
                 output = ""
+
                 if tool == "Summarization":
-                    # Use Hugging Face's pipeline for summarization
-                    summarizer = pipeline("summarization")
-                    summary = summarizer(text, max_length=150, min_length=50, do_sample=False)
-                    output = summary[0]['summary_text']
+                    response = co.summarize(text)
+                    output = response.summary
 
                 elif tool == "Keyword Extraction":
                     prompt = f"Extract keywords from this text:\n{text}\nKeywords:"
@@ -79,4 +77,4 @@ if st.session_state.history:
         st.markdown(f"<div class='session-history'>{item}</div>", unsafe_allow_html=True)
 
 # --- Footer ---
-#st.markdown("<footer>Developed by Ahmad Raza Jajja</footer>", unsafe_allow_html=True)
+st.markdown("<footer>Developed by Ahmad Raza Jajja</footer>", unsafe_allow_html=True)
