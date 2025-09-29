@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 # Load Hugging Face token
 load_dotenv()
-HF_TOKEN = os.getenv("HF_TOKEN")
 HF_TOKEN = st.secrets["general"]["HF_TOKEN"]
 
 
@@ -67,5 +66,6 @@ st.markdown(
     "<p style='text-align:center; color:#00f5ff; margin-top:40px;'>Developed by Ahmad Raza Jajja</p>",
     unsafe_allow_html=True
 )
+
 
 
