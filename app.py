@@ -1,16 +1,17 @@
 import streamlit as st
 from huggingface_hub import InferenceClient
 import cohere
+import re
 
 # --- Page Config ---
 st.set_page_config(page_title="AI Study & Productivity Hub", page_icon="📚", layout="wide")
 
-# --- Custom CSS ---
+# --- Custom CSS for Neon Dark UI ---
 st.markdown("""
 <style>
 body {background-color:#0b1120;color:#fff;font-family:'Segoe UI', Tahoma, Geneva, Verdana;}
 h1 {background:linear-gradient(90deg,#00f5ff,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;font-size:3em;margin-bottom:5px;}
-h3 {color:#94a3b8;text-align:center;margin-bottom:30px;text-align:center;}
+h3 {color:#94a3b8;text-align:center;margin-bottom:30px;}
 .stTextArea textarea {background-color:#1e293b;color:#fff;border-radius:15px;padding:15px;font-size:16px;}
 .stButton>button {background:linear-gradient(90deg,#3b82f6,#00f5ff);color:#000;font-weight:bold;border-radius:15px;padding:12px 25px;font-size:16px;transition:0.3s;}
 .stButton>button:hover {background:linear-gradient(90deg,#00f5ff,#3b82f6);color:#000;}
@@ -27,7 +28,7 @@ st.markdown("<h3>Boost your study with AI-powered tools!</h3>", unsafe_allow_htm
 # --- Session State ---
 if 'history' not in st.session_state: st.session_state.history = []
 
-# --- API Keys ---
+# --- API Clients ---
 HF_TOKEN = st.secrets["general"]["HF_TOKEN"]
 COHERE_API_KEY = st.secrets["general"]["COHERE_API_KEY"]
 
@@ -40,47 +41,60 @@ tool = st.selectbox("Select Tool:", ["Summarization","Keyword Extraction","Parap
 
 # --- Run Tool ---
 if st.button("Run"):
-    if not text.strip():
-        st.warning("⚠ Please enter some text!")
-    elif len(text.strip()) < 20:
-        st.warning("⚠ Input too short. Please enter a full sentence or paragraph for meaningful results.")
+    if text.strip():
+        if len(text.strip().split()) < 3:
+            st.warning("⚠ Input too short. Please enter a complete sentence or paragraph.")
+        else:
+            with st.spinner("Processing..."):
+                try:
+                    output = ""
+                    
+                    # --- Summarization ---
+                    if tool == "Summarization":
+                        try:
+                            res = hf_client.summarization(text)
+                            if isinstance(res,list) and len(res)>0:
+                                output = res[0].get("summary_text") or res[0].get("generated_text") or str(res[0])
+                            else:
+                                output = str(res)
+                        except:
+                            response = co.summarize(text)
+                            output = response.summary
+
+                    # --- Keyword Extraction ---
+                    elif tool == "Keyword Extraction":
+                        prompt = f"Extract keywords from this text:\n{text}\nKeywords:"
+                        response = co.generate(model='xlarge', prompt=prompt, max_tokens=60)
+                        output = response.generations[0].text.strip()
+
+                    # --- Paraphrasing ---
+                    elif tool == "Paraphrasing":
+                        prompt = f"Paraphrase this text:\n{text}\nParaphrased:"
+                        response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
+                        output = response.generations[0].text.strip()
+
+                    # --- Translation ---
+                    elif tool == "Translation":
+                        prompt = f"Translate this text to Spanish:\n{text}\nTranslation:"
+                        response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
+                        output = response.generations[0].text.strip()
+
+                    # --- Clean Repeated Words & Spaces ---
+                    output = re.sub(r'\s+([?.!,])', r'\1', output)
+                    output = re.sub(r'\b(\w+)( \1\b)+', r'\1', output)
+
+                    # --- Display & Copy ---
+                    st.success(f"✅ {tool} Result:")
+                    st.markdown(f"<div class='summary-box'>{output}</div>", unsafe_allow_html=True)
+                    st.download_button("📋 Copy / Download Result", data=output, file_name=f"{tool}_output.txt")
+
+                    # --- Save to session history ---
+                    st.session_state.history.append(f"{tool}: {output}")
+
+                except Exception as e:
+                    st.error(f"Error: {e}")
     else:
-        with st.spinner("Processing..."):
-            try:
-                output = ""
-                if tool=="Summarization":
-                    # Hugging Face summarization
-                    res = hf_client.summarization(text)
-                    if isinstance(res, list) and len(res) > 0:
-                        output = res[0].get("summary_text") or res[0].get("generated_text") or str(res[0])
-                    else:
-                        output = str(res)
-
-                elif tool=="Keyword Extraction":
-                    prompt=f"Extract keywords from this text:\n{text}\nKeywords:"
-                    response = co.generate(model='xlarge', prompt=prompt, max_tokens=60)
-                    output = response.generations[0].text.strip()
-
-                elif tool=="Paraphrasing":
-                    prompt=f"Paraphrase this text:\n{text}\nParaphrased:"
-                    response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
-                    output = response.generations[0].text.strip()
-
-                elif tool=="Translation":
-                    prompt=f"Translate this text to Spanish:\n{text}\nTranslation:"
-                    response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
-                    output = response.generations[0].text.strip()
-
-                # --- Display & Copy ---
-                st.success(f"✅ {tool} Result:")
-                st.markdown(f"<div class='summary-box'>{output}</div>", unsafe_allow_html=True)
-                st.download_button("📋 Copy / Download Result", data=output, file_name=f"{tool}_output.txt")
-
-                # --- Session History ---
-                st.session_state.history.append(f"{tool}: {output}")
-
-            except Exception as e:
-                st.error(f"Error: {e}")
+        st.warning("⚠ Please enter some text!")
 
 # --- Session History ---
 if st.session_state.history:
