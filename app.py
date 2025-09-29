@@ -23,7 +23,7 @@ st.markdown("<h1>📚 AI Personal Study & Productivity Hub</h1>", unsafe_allow_h
 st.markdown("<h3>Boost your study with AI-powered summarization!</h3>", unsafe_allow_html=True)
 
 # --- Hugging Face Client ---
-HF_TOKEN = st.secrets["general"]["HF_TOKEN"]  # Add your token in .streamlit/secrets.toml
+HF_TOKEN = st.secrets["general"]["HF_TOKEN"]
 client = InferenceClient("sshleifer/distilbart-cnn-12-6", token=HF_TOKEN)
 
 # --- Text Input ---
@@ -35,14 +35,19 @@ if st.button("Summarize"):
         with st.spinner("Generating summary..."):
             try:
                 result = client.summarization(text)
-                
-                # Extract summary text safely
+
+                # Extract clean text
                 if isinstance(result, list) and len(result) > 0:
-                    summary = result[0].get("summary_text") or result[0].get("generated_text") or str(result[0])
+                    summary_obj = result[0]
+                    # Check if summary_text key exists
+                    if hasattr(summary_obj, 'summary_text'):
+                        summary = summary_obj.summary_text
+                    else:
+                        summary = str(summary_obj)
                 else:
                     summary = str(result)
 
-                # Display clean summary
+                # Display summary
                 st.success("✅ Summary Generated!")
                 st.markdown(f"<div class='summary-box'>{summary}</div>", unsafe_allow_html=True)
             except Exception as e:
