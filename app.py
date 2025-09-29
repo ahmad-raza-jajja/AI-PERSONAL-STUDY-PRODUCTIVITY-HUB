@@ -1,6 +1,6 @@
 import streamlit as st
-from huggingface_hub import InferenceClient
 import cohere
+from transformers import pipeline
 
 # --- Page Config ---
 st.set_page_config(page_title="AI Study & Productivity Hub", page_icon="📚", layout="wide")
@@ -28,15 +28,12 @@ st.markdown("<h3>Boost your study with AI-powered tools!</h3>", unsafe_allow_htm
 if 'history' not in st.session_state: st.session_state.history = []
 
 # --- API Clients ---
-HF_TOKEN = st.secrets["general"]["HF_TOKEN"]
 COHERE_API_KEY = st.secrets["general"]["COHERE_API_KEY"]
-
-hf_client = InferenceClient("sshleifer/distilbart-cnn-12-6", token=HF_TOKEN)
 co = cohere.Client(COHERE_API_KEY)
 
 # --- Text Input ---
 text = st.text_area("Enter your text:", height=250)
-tool = st.selectbox("Select Tool:", ["Summarization","Keyword Extraction","Paraphrasing","Translation"])
+tool = st.selectbox("Select Tool:", ["Summarization", "Keyword Extraction", "Paraphrasing", "Translation"])
 
 # --- Run Tool ---
 if st.button("Run"):
@@ -44,32 +41,34 @@ if st.button("Run"):
         with st.spinner("Processing..."):
             try:
                 output = ""
-                if tool=="Summarization":
-                    try:
-                        res = hf_client.summarization(text)
-                        output = res[0].get("summary_text") or res[0].get("generated_text") or str(res)
-                    except:
-                        response = co.summarize(text)
-                        output = response.summary
-                elif tool=="Keyword Extraction":
-                    prompt=f"Extract keywords from this text:\n{text}\nKeywords:"
+                if tool == "Summarization":
+                    # Use Hugging Face's pipeline for summarization
+                    summarizer = pipeline("summarization")
+                    summary = summarizer(text, max_length=150, min_length=50, do_sample=False)
+                    output = summary[0]['summary_text']
+
+                elif tool == "Keyword Extraction":
+                    prompt = f"Extract keywords from this text:\n{text}\nKeywords:"
                     response = co.generate(model='xlarge', prompt=prompt, max_tokens=60)
                     output = response.generations[0].text.strip()
-                elif tool=="Paraphrasing":
-                    prompt=f"Paraphrase this text:\n{text}\nParaphrased:"
+
+                elif tool == "Paraphrasing":
+                    prompt = f"Paraphrase this text:\n{text}\nParaphrased:"
                     response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
                     output = response.generations[0].text.strip()
-                elif tool=="Translation":
-                    prompt=f"Translate this text to Spanish:\n{text}\nTranslation:"
+
+                elif tool == "Translation":
+                    prompt = f"Translate this text to Spanish:\n{text}\nTranslation:"
                     response = co.generate(model='xlarge', prompt=prompt, max_tokens=200)
                     output = response.generations[0].text.strip()
 
                 st.success(f"✅ {tool} Result:")
-                st.markdown(f"<div class='summary-box'>{output}</div>",unsafe_allow_html=True)
+                st.markdown(f"<div class='summary-box'>{output}</div>", unsafe_allow_html=True)
                 st.download_button("📋 Copy / Download Result", data=output, file_name=f"{tool}_output.txt")
                 st.session_state.history.append(f"{tool}: {output}")
 
-            except Exception as e: st.error(f"Error: {e}")
+            except Exception as e:
+                st.error(f"Error: {e}")
     else:
         st.warning("⚠ Please enter some text!")
 
