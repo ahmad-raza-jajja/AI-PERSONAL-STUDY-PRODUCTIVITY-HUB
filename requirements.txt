@@ -1,8 +1,8 @@
-treamlit
+streamlit
 huggingface-hub
 python-dotenv
-transformers
-requests
+
+
 
 
 
